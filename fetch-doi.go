@@ -1,40 +1,71 @@
 package main
 
 import (
-	"bufio"
-	"fmt"
-	"net/url" // Import the net/url package
-	"os"
-	"github.com/gocolly/colly"
+    "bufio"
+    "fmt"
+    "io"
+    "net/http"
+    "net/url"
+    "os"
+    "github.com/gocolly/colly"
+    "github.com/rivo/tview"
 )
 
+type Paper struct {
+    Title string
+    URL   string
+}
+
 func main() {
-	// Create a new collector
-	c := colly.NewCollector()
+    var papers []Paper
 
-	// Take search input from the user
-	fmt.Println("Enter your search query for Google Scholar:")
-	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Scan() // Wait for input
-	query := scanner.Text()
+    c := colly.NewCollector()
 
-	// Encode the query to handle spaces and special characters
-	encodedQuery := url.QueryEscape(query)
+    c.OnHTML("div.gs_ri", func(e *colly.HTMLElement) {
+        title := e.ChildText("h3.gs_rt")
+        link := e.ChildAttr("a", "href")
+        papers = append(papers, Paper{Title: title, URL: link})
+    })
 
-	// Construct the search URL for Google Scholar with the encoded query
-	searchURL := fmt.Sprintf("https://scholar.google.com/scholar?q=%s", encodedQuery)
+    fmt.Println("Enter your search query for Google Scholar:")
+    scanner := bufio.NewScanner(os.Stdin)
+    scanner.Scan()
+    query := scanner.Text()
 
-	// Setup Colly to parse the search results
-	c.OnHTML("div.gs_ri", func(e *colly.HTMLElement) {
-		title := e.ChildText("h3")
-		authorAndPublicationInfo := e.ChildText(".gs_a")
-		summary := e.ChildText(".gs_rs")
-		fmt.Println("Title:", title)
-		fmt.Println("Details:", authorAndPublicationInfo)
-		fmt.Println("Summary:", summary)
-		fmt.Println("------")
-	})
+    encodedQuery := url.QueryEscape(query)
+    searchURL := fmt.Sprintf("https://scholar.google.com/scholar?q=%s", encodedQuery)
+    c.Visit(searchURL)
+    c.Wait()
 
-	// Visit the search URL
-	c.Visit(searchURL)
+    app := tview.NewApplication()
+    list := tview.NewList()
+
+    for i, paper := range papers {
+        index := i // capture the current value of i
+        list.AddItem(paper.Title, "", 0, func() {
+            selectedPaper := papers[index]
+            app.Stop()
+
+            // Fetch and display the selected paper's page
+            resp, err := http.Get(selectedPaper.URL)
+            if err != nil {
+                fmt.Println("Error fetching paper:", err)
+                return
+            }
+            defer resp.Body.Close()
+
+            body, err := io.ReadAll(resp.Body)
+            if err != nil {
+                fmt.Println("Error reading response body:", err)
+                return
+            }
+
+            fmt.Println("Content of the selected paper's page:")
+            fmt.Println(string(body))
+        })
+    }
+
+    if err := app.SetRoot(list, true).SetFocus(list).Run(); err != nil {
+        panic(err)
+    }
 }
