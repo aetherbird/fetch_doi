@@ -1,4 +1,4 @@
-### Program to find DOI Numbers and reference info
+### Program to find DOI numbers and reference info
 
 WORK IN PROGRESS
 
