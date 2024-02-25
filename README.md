@@ -1,6 +1,6 @@
 ### Program to find DOI numbers and reference info
 
-WORK IN PROGRESS
+WORK IN PROGRESS :)
 
 - Receive a paper title or search string
 - Look for doi
