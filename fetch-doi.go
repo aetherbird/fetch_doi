@@ -1,38 +1,40 @@
 package main
 
 import (
-    "fmt"
-    "net/http"
-
-    "github.com/gocolly/colly"
+	"bufio"
+	"fmt"
+	"net/url" // Import the net/url package
+	"os"
+	"github.com/gocolly/colly"
 )
 
 func main() {
+	// Create a new collector
 	c := colly.NewCollector()
 
-	// Find and visit all links
-	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
-		e.Request.Visit(e.Attr("href"))
+	// Take search input from the user
+	fmt.Println("Enter your search query for Google Scholar:")
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan() // Wait for input
+	query := scanner.Text()
+
+	// Encode the query to handle spaces and special characters
+	encodedQuery := url.QueryEscape(query)
+
+	// Construct the search URL for Google Scholar with the encoded query
+	searchURL := fmt.Sprintf("https://scholar.google.com/scholar?q=%s", encodedQuery)
+
+	// Setup Colly to parse the search results
+	c.OnHTML("div.gs_ri", func(e *colly.HTMLElement) {
+		title := e.ChildText("h3")
+		authorAndPublicationInfo := e.ChildText(".gs_a")
+		summary := e.ChildText(".gs_rs")
+		fmt.Println("Title:", title)
+		fmt.Println("Details:", authorAndPublicationInfo)
+		fmt.Println("Summary:", summary)
+		fmt.Println("------")
 	})
 
-	c.OnRequest(func(r *colly.Request) {
-		fmt.Println("Visiting", r.URL)
-	})
-
-	c.Visit("https://aethercosmology.com/")
-
-  c.OnHTML("body", func(e *colly.HTMLElement) {
-      // Extract text using various methods:
-      text := e.Text()           // Get all text content
-      title := e.ChildText("h1") // Get text of H1 element
-      paragraphs := e.ChildTexts("p") // Get text of all P elements
-  
-      // Print the extracted text:
-      fmt.Println("Title:", title)
-      fmt.Println("Paragraphs:")
-      for _, paragraph := range paragraphs {
-          fmt.Println("- " + paragraph)
-      }
-  })
-
+	// Visit the search URL
+	c.Visit(searchURL)
 }
